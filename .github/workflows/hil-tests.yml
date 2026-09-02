@@ -1,0 +1,29 @@
+name: HIL Control Plane Automated Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  hil-test-execution:
+    # Running on the self-hosted Raspberry Pi runner connected to physical hardware
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Build HIL Test Runner Docker Image
+        run: |
+          docker build -t bgp-hil-tester .
+
+      - name: Execute Automated Pytest Suite inside Docker
+        run: |
+          # Run Docker using the host network and mount the untracked local topology configuration
+          docker run --rm \
+            --network host \
+            --device=/dev/ttyACM0:/dev/ttyACM0 \
+            -v /home/pero/adi_project/bgp-control-plane-tester/config/topology.yaml:/app/config/topology.yaml \
+            bgp-hil-tester

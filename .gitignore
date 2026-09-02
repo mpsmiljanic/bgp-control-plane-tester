@@ -1,0 +1,34 @@
+# Python virtual environments & packages
+.venv/
+venv/
+ENV/
+bin/
+lib/
+include/
+share/
+
+# Python caching & execution artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ESP-IDF target build files (Extremely large, do not commit!)
+**/build/
+**/sdkconfig
+**/sdkconfig.old
+.espressif/
+
+# System specific files
+.DS_Store
+Thumbs.db
+
+# Internal pytest learning drills
+tests/pytest_drill/
+tests/pytest_dirll/
+config/topology.yaml
+actions-runner/
+*.tar.gz
