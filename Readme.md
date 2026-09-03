@@ -104,4 +104,38 @@ To execute the PCAP packet validation suite:
 
 pytest -s -v tests/test_pcap/test_bgp_pcap_validation.py
 
+# WARNING!
+## Critical HIL Architecture Gotcha: The "Bypass Routing" Trap (Testbed Leakage)
+
+During the deployment of this HIL testbed, we encountered and resolved a classic system-level networking loophole. This case study highlights the difference between **logical protocol success** and **physical testbed integrity**.
+
+### The Problem (Logical PASS, Physical FAIL)
+During early testing, the Raspberry Pi (Runner) and the ESP32 (DUT) were connected to the same Wi-Fi network. However, the Pi was also physically connected to the Developer's PC via an Ethernet cable for diagnostic/SSH access, with internet/network sharing enabled on the PC.
+
+When executing the BGP suite with the Pi's Wi-Fi interface intentionally disabled, **the tests still passed green!**
+
++------------------+                   +------------------+ |  Developer PC    | <===[ Wi-Fi ]===> |    ESP32 DUT     | |  (Bridge/Router) |                   |  (192.168.1.8)   | +------------------+                   +------------------+ ^ || [Ethernet LAN (10.42.0.1)] v +------------------+ |  Raspberry Pi    | |  (Wi-Fi OFF!)    | +------------------+
+
+
+#### Why did this happen?
+Because TCP/IP and routing protocols are inherently robust. When the Raspberry Pi's Wi-Fi was off, it had no direct route to the ESP32's IP subnet (`192.168.1.x`). However, its default gateway was set to the Ethernet interface connected to the PC (`10.42.0.1`). 
+1. The Pi generated BGP packets and sent them over the **physical Ethernet cable** to the PC.
+2. The PC's operating system bridged/routed those packets over its own **active Wi-Fi interface** directly to the ESP32.
+3. The ESP32 replied, and the PC routed the response back through the wire to the Pi.
+
+### Why is this a Critical Testbed Failure?
+* **False Security:** The test runner reported `PASSED`, masking the fact that **direct Wi-Fi connectivity between the Pi and the ESP32 was completely broken/non-existent**.
+* **Environmental Dependency:** The moment the developer disconnects their laptop or locks their screen, the automated CI/CD pipeline on the self-hosted runner will immediately break with `No route to host`.
+
+### The Resolution (How to Ensure 100% Isolated HIL)
+To validate that the HIL testbed is truly autonomous and isolated, we implemented a strict **physical-only validation protocol**:
+
+1. **Physical Isolation:** Unplug any direct Ethernet/USB bridges between the Developer PC and the Raspberry Pi.
+2. **Routing Table Audit:** Execute `ip route` on the Pi and ensure the *only* active default gateway is the local WLAN router (`wlan0`), with no active Ethernet bridges routing traffic to external gateways.
+3. **Negative Testbed Validation:** Disabling the Wi-Fi radio on the Pi via `nmcli radio wifi off` *must* immediately cause the pytest suite to fail with packet-delivery timeouts. 
+
+Only when the tests **fail under Wi-Fi disconnection** and **pass under Wi-Fi activation with NO physical PC-to-Pi bridge** can the testbed run be certified as a **True HIL Pass**.
+
+
+
 
