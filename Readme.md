@@ -199,5 +199,31 @@ Even though the adapter bypasses the blocking read, this test still guarantees a
 
 ---
 
+## Robustness & Error Injection (Negative Testing)
 
+To ensure the BGP control plane is resilient against malformed packets, security threats, and protocol violations, we implemented **Negative Testing (Error Injection)**. Instead of only testing "happy path" scenarios, we deliberately feed corrupted bytes into the ESP32 parser to verify its error-handling and connection-teardown logic.
+
+### 1. TC-R-02: Invalid Message Length Validation (Option A)
+* **Standard Requirement (RFC 4271):** The absolute minimum length of any BGP message is **19 bytes** (the exact size of the header). Any packet declaring a length shorter than 19 must be rejected immediately to prevent critical memory corruption or buffer overflow vulnerabilities in C.
+* **Test Design:** We inject an OPEN packet with a valid 16-byte marker, but set the 2-byte Length field to `18` (`0x0012`).
+* **Real Bug Discovered:** During active HIL testing, we uncovered a security/protocol validation bug in the ESP32 firmware. The DUT parsed the 18-byte length, ignored the constraint, and incorrectly established a BGP session anyway.
+* **Jira Tracking & CI/CD Guard (`xfail`):** This issue was logged as `JIRA-1042` / `QA-342`. To prevent this known, unresolved firmware bug from permanently breaking our daily CI/CD pipeline, we wrapped the test with a strict expected failure decorator:
+
+  ```python
+  @pytest.mark.xfail(
+      strict=True, 
+      reason="JIRA-1042 / QA-342: ESP32 lacks BGP Min Length validation."
+  )
+    ```
+
+CI/CD Hygiene: The test runs, fails as expected on the physical target, but Pytest reports it as XFAIL (Expected Failure), keeping the build status green.
+Automatic Alarm (strict=True): The moment a developer commits a fix and the ESP32 starts validating the packet length correctly, Pytest will flag this as XPASS (Unexpected Pass) and natively fail the pipeline. This immediately alerts us to remove the decorator and close the Jira ticket.
+
+### 2. TC-R-03: Unsupported Message Type Validation (Option B)
+
+Standard Requirement (RFC 4271): BGP supports only 4 message types: OPEN (1), UPDATE (2), NOTIFICATION (3), and KEEPALIVE (4). Any other message type (e.g., Type 5) must be rejected, and the TCP connection must be torn down.
+Test Design: We inject a packet with a valid marker and valid length (19 bytes), but set the Type byte to 5 (Unsupported/Reserved).
+Result: PASSED: The ESP32 successfully rejected the Type 5 message, refused to transition its FSM, and closed the TCP socket connection. This confirms that basic message-type branching is stable and secure against unrecognized protocol codes.
+
+---
 

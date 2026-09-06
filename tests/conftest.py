@@ -38,7 +38,7 @@ class MockDUT:
         return "\n".join(self.logs)
 
     def send_packet(self, data):
-        # Structured header byte indexes
+        # Structured header byte indexes using named constants to prevent system stripping
         LENGTH_HIGH_BYTE = 16
         LENGTH_LOW_BYTE = 17
         MSG_TYPE_BYTE = 18
@@ -56,8 +56,22 @@ class MockDUT:
             length = (data[LENGTH_HIGH_BYTE] << 8) | data[LENGTH_LOW_BYTE]
             msg_type = data[MSG_TYPE_BYTE]
             
+            # [OPTION A] Invalid Message Length Validation (< 19 bytes)
+            if length < 19:
+                self.state = "BGP_IDLE"
+                self.logs.append(f"[ERROR_INJECTION] Invalid Message Length: {length}! Expected >= 19.")
+                self.logs.append("[BGP_FSM] STATE: IDLE")
+                return b"ERR_BAD_LENGTH\n"
+            
             # Simulate serial output before checking message type (identical to ESP32 behavior)
             self.logs.append(f"[BGP_FSM] Valid BGP Header. Length: {length}, Type: {msg_type}")
+            
+            # [OPTION B] Unsupported Message Type Validation (Allowed: 1 to 4)
+            if msg_type not in [8-11]:
+                self.state = "BGP_IDLE"
+                self.logs.append(f"[ERROR_INJECTION] Unsupported Message Type: {msg_type}!")
+                self.logs.append("[BGP_FSM] STATE: IDLE")
+                return b"ERR_UNSUPPORTED_TYPE\n"
             
             if msg_type == 1:
                 self.state = "BGP_ESTABLISHED"
@@ -124,7 +138,11 @@ def dut_connection(topology_config):
                         if not chunk:
                             break
                         response += chunk
-                        if b"ADI_BGP_SESSION_ESTABLISHED" in response or b"ERR_BAD_MARKER" in response:
+                        # Break early if we see any known response token to speed up test execution
+                        if (b"ADI_BGP_SESSION_ESTABLISHED" in response or 
+                            b"ERR_BAD_MARKER" in response or 
+                            b"ERR_BAD_LENGTH" in response or 
+                            b"ERR_UNSUPPORTED_TYPE" in response):
                             break
                     s.close()
                     return response
