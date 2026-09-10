@@ -5,3 +5,8 @@ __pycache__/
 build/
 *.log
 tests/pytest_drill/
+docs/build
+*.pyc
+*.pyo
+*.pyd
+.DS_Store

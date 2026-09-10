@@ -11,6 +11,7 @@ WORKDIR /app
 # Install system utilities needed for serial communication
 RUN apt-get update && apt-get install -y --no-install-recommends \
     udev \
+    make \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python requirements first (utilizing Docker layer caching)
@@ -20,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the configuration and test files into the container
 COPY config/ ./config/
 COPY tests/ ./tests/
+COPY docs/ ./docs/
 
 # Default entrypoint: Run the BGP FSM test suite in verbose mode
 CMD ["pytest", "-s", "-v", "tests/test_bgp_fsm.py"]
