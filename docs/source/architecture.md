@@ -14,27 +14,29 @@ The HIL system consists of two primary physical nodes:
 * **Control/Debug Plane (UART)**: Serial connection via USB (baud rate: 115200) linking the RPi directly to the ESP32 for raw log extraction, resource monitoring (heap memory, CPU load), and hard-reset control.
 * **Data Plane (TCP/IP)**: Dual wireless or wired Local Area Network (Wi-Fi/Ethernet) linking RPi and ESP32. Real mrežni TCP socket connection is used to transport protocol packets.
 
-   +-------------------------------------------------+
-   |         Hardware Test Platform (HTP)            |
-   |             Raspberry Pi 3B+                    |
-   |  +-------------------------------------------+  |
-   |  |  Pytest Framework                         |  |
-   |  |  (Test-Runner & Mock Fallback Engine)     |  |
-   |  +-------------------------------------------+  |
-   +-----------------------+-------------------------+
-                           |
-        Data Plane         | Control/Debug Plane
-        TCP Port 179       | UART via USB (115200)
-        (WiFi / Ethernet)  | (Hard Reset, Logs & Telemetry)
-                           |
-   +-----------------------v-------------------------+
-   |             Device Under Test (DUT)             |
-   |                  ESP32 MCU                      |
-   |  +-------------------------------------------+  |
-   |  |  Lightweight Network OS Simulator         |  |
-   |  |  BGP Finite State Machine (FSM) Engine    |  |
-   |  +-------------------------------------------+  |
-   +-------------------------------------------------+
+```text
++-------------------------------------------------------------+
+|                Hardware Test Platform (HTP)                 |
+|                      Raspberry Pi 3B+                       |
+|  +-------------------------------------------------------+  |
+|  |                   Pytest Framework                    |  |
+|  |         (Test-Runner & Mock Fallback Engine)          |  |
+|  +-------------------------------------------------------+  |
++------------------------------+------------------------------+
+                               |                              
+        Data Plane             |     Control / Debug Plane    
+       TCP Port 179            |      UART via USB (115200)   
+     (Wi-Fi / Ethernet)        |   (Hard Reset, Logs & Telemetry)
+                               |                              
++------------------------------v------------------------------+
+|                   Device Under Test (DUT)                   |
+|                          ESP32 MCU                          |
+|  +-------------------------------------------------------+  |
+|  |             Lightweight Network OS Simulator          |  |
+|  |           BGP Finite State Machine (FSM) Engine       |  |
+|  +-------------------------------------------------------+  |
++-------------------------------------------------------------+
+```
 
 
 ## 3. Finite State Machine (FSM) Implementation
